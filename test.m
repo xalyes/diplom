@@ -2,7 +2,7 @@
 %% Обучение
 disp('Обучение системы');
 train_path = 'train';
-count = 3;
+count = 2;
 db_path = 'fv';
 for i = 1:count
 fname = sprintf('%s\\train-%02d.wav', train_path, i);
@@ -12,7 +12,7 @@ fname1 = sprintf('%s\\%d.csv', db_path, i);
 dlmwrite(fname1, MFCCs_train);
 end;
 db_path = 'fv';
-train_count = 3;
+train_count = 2;
 threshold = 0;
 % Отображение результатов обучения
 for i = 1:train_count-1
@@ -92,7 +92,6 @@ disp(['Проверка файла ', fname, ': Расстояние: ', num2str(distmin), ' Статус: от
 end;
 end;
 mdist2 = min(mdist2, distmin);
-65
 end;
 %% Проверка дополнительных образцов
 disp('Проверка дополнительных образцов');
