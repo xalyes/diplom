@@ -8,6 +8,7 @@ for i = 1:count
 fname = sprintf('%s\\train-%02d.wav', train_path, i);
 [speech, fs] = audioread(fname);
 MFCCs_train = get_feature_vector(speech, fs);
+disp(speech);
 fname1 = sprintf('%s\\%d.csv', db_path, i);
 dlmwrite(fname1, MFCCs_train);
 end;
