@@ -1,4 +1,4 @@
-﻿Сборка начата 22.11.2014 21:46:25.
+﻿Сборка начата 13.12.2014 18:27:54.
      1>Проект "C:\Users\Максим\Documents\MATLAB\diplom\diplom\cpp\diplom\diplom.vcxproj" в узле 2 (целевые объекты Build).
      1>ClCompile:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _CRT_SECURE_NO_WARNINGS /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /analyze- /errorReport:prompt main.cpp
@@ -7,6 +7,14 @@
      1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(75): warning C4244: =: преобразование "double" в "float", возможна потеря данных
      1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(77): warning C4244: =: преобразование "double" в "float", возможна потеря данных
      1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(78): warning C4244: return: преобразование "double" в "float", возможна потеря данных
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(90): warning C4244: инициализация: преобразование "const float" в "int", возможна потеря данных
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(95): warning C4244: инициализация: преобразование "const float" в "int", возможна потеря данных
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(108): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(125): warning C4018: <: несоответствие типов со знаком и без знака
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(126): warning C4018: <: несоответствие типов со знаком и без знака
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(137): warning C4305: инициализация: усечение из "double" к "float"
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(149): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
+     1>c:\users\максим\documents\matlab\diplom\diplom\cpp\diplom\main.cpp(150): warning C4244: инициализация: преобразование "double" в "int", возможна потеря данных
        Link:
          C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\Максим\Documents\MATLAB\diplom\diplom\cpp\diplom\Debug\diplom.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\Максим\Documents\MATLAB\diplom\diplom\cpp\diplom\Debug\diplom.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\Максим\Documents\MATLAB\diplom\diplom\cpp\diplom\Debug\diplom.lib" /MACHINE:X86 Debug\main.obj
          diplom.vcxproj -> C:\Users\Максим\Documents\MATLAB\diplom\diplom\cpp\diplom\Debug\diplom.exe
@@ -14,4 +22,4 @@
 
 Сборка успешно завершена.
 
-Затраченное время: 00:00:00.95
+Затраченное время: 00:00:01.21

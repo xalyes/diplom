@@ -15,6 +15,7 @@ fmax = 6250; % максимальная частота, Гц
 Ncc = 29; % количество мел-кепстральных коэффициентов
 % Конец блока настраиваемых параметров
 speech = filter(1 - alpha, 1, speech);
+disp(speech);
 Nw = round(1E-3 * frame_duration * fs); % длина фрейма (в сэмплах)
 Ns = round(1E-3 * frame_shift * fs); % сдвиг фрейма (в сэмплах)
 frames = vec2frames(speech, Nw, Ns); % Разбиение сигнала на фреймы
