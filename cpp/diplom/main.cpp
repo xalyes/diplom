@@ -121,11 +121,11 @@ void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &fr
 	for (int i = 0; i < Nw; ++i)
 		inds[i] = i + 1;
 
-	//vector <vector <float> > frames(inds.size(), vector<float>(indf.size()));
+	vector <vector <float> > frames2(inds.size(), vector<float>(indf.size()));
 	for (int i = 0; i < inds.size(); ++i)
 		for (int j = 0; j < indf.size(); ++j)
 		{
-			frames[i][j] = vec[inds[i] + indf[j]];
+			frames2[i][j] = vec[inds[i] + indf[j]];
 		}
 
 
