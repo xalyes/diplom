@@ -1,6 +1,7 @@
 #include "main.h";
 
 using namespace std;
+#define PI 3.1415926535
 
 // Структура, описывающая заголовок WAV файла.
 struct WAVHEADER
@@ -78,30 +79,54 @@ float bytesToFloat(char firstByte, char secondByte)
 	return floor(res * 10000 + 0.5) / 10000;
 }
 
-void filter(const float b, const float a, const vector<float> &x, vector<float> &speech)
+void filter(const float k, vector<float> &speech)
 {
-	speech[0] = b*x[0];
-	float sum1, sum2;
-	int N = x.size();
-	for (int i = 1; i < N; ++i)
+	vector<float> resSpeech(speech.size());
+	int size = speech.size();
+	for (int i = k; i < size - k; ++i)
 	{
-		sum1 = 0;
-		sum2 = 0;
-		for (int j = i - i*b; j <= i; ++j)
+		float sum = 0;
+		for (int j = -k; j < k + 1; ++j)
 		{
-			sum1 += x[j];
+			sum = speech[i + j];
 		}
-		sum1 *= b;
-		for (int j = i - i*a; j <= i - 1; ++j)
-		{
-			sum2 += speech[j];
-		}
-		sum2 *= a;
-		speech[i] = sum1 - sum2;
+		resSpeech[i] = (1 / k)*sum;
 	}
+	for (int i = 0; i < k; ++i)
+		resSpeech[speech.size() - i-1] = speech[i];
+	for (int i = 0; i < k; ++i)
+		resSpeech[i] = speech[i];
+	speech = resSpeech;
 }
 
-void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &frames)
+void MulMatrix(const vector <vector <float> > &A, const vector <vector <float> > &B, vector <vector <float> > &Res)
+{
+	if (A.size() != B.front().size())
+		return;
+	int a = A.size();
+	int b = A.size();
+	int c = B.size();
+	vector <vector <float> > R(c, vector<float>(a, 0));
+
+	for (int i = 0; i < c; ++i)
+		for (int j = 0; j < a; ++j)
+		{
+			R[i][j] = 0;
+			for (int k = 0; k < b; ++k)
+				R[i][j] += A[k][j] * B[i][k];
+		}
+	Res = R;
+}
+
+void diag(const vector <float> &V, vector <vector <float> > &R)
+{
+	vector <vector <float> > A(V.size(), vector<float>(V.size(), 0));
+	for (int i = 0; i < V.size(); ++i)
+		A[i][i] = V[i];
+	R = A;
+}
+
+void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &resFrames)
 {
 	int L = vec.size();
 
@@ -121,13 +146,43 @@ void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &fr
 	for (int i = 0; i < Nw; ++i)
 		inds[i] = i + 1;
 
-	vector <vector <float> > frames2(inds.size(), vector<float>(indf.size()));
-	for (int i = 0; i < inds.size(); ++i)
-		for (int j = 0; j < indf.size(); ++j)
+	vector <vector <float> > frames(indf.size(), vector<float>(inds.size()));
+	for (int i = 0; i < indf.size(); ++i)
+		for (int j = 0; j < inds.size(); ++j)
 		{
-			frames2[i][j] = vec[inds[i] + indf[j]];
+			frames[i][j] = vec[indf[i] + inds[j]];
 		}
+	
+	vector<float> window_s(Nw);
+	for (int i = 0; i < window_s.size(); ++i)
+		window_s[i] = 0.54 - 0.46 * cos((2.0 * PI * i) / (window_s.size() - 1.0));
+	vector<vector<float>> ham_matrix(Nw, vector<float>(Nw, 0));
+	diag(window_s, ham_matrix);
+	MulMatrix(ham_matrix, frames, resFrames);
+}
 
+void silence_removal(vector <vector <float>> source)
+{
+	const int Nf = source.size();
+	vector <float> E(Nf, 0);
+	const int Nw = source.front().size();
+	float E_mean = 0;
+	for (int i = 0; i < Nf; ++i)
+	{
+		float sum = 0;
+		for (int j = 0; j < Nw; ++j)
+			sum += fabs(source[i][j])*fabs(source[i][j]);
+		E[i] = sum * (1.0 / Nw);
+		E_mean += E[i];
+	}
+	E_mean /= Nf;
+	float T_E = E_mean / 10;
+	vector<bool> voicedIndexes(Nf);
+	for (int i = 0; i < E.size(); ++i)
+		voicedIndexes[i] = ((E[i] > T_E) ? 1 : 0);
+	for (int i = 0; i < Nf; ++i)
+		if (!voicedIndexes[i])
+			source.erase(source.begin() + i);
 
 }
 
@@ -144,13 +199,14 @@ bool get_feature_vector(vector<float> speech, const int fs, vector <vector <floa
 	int fmax = 6250;				// максимальная частота, Гц
 	int Ncc = 29;					// количество мел - кепстральных коэффициентов
 
-	//filter(1 - alpha, 1, speech, speech);
+	filter(25, speech);
 
 	int Nw = round(0.001 * frame_duration * fs);
 	int Ns = round(0.001 * frame_shift * fs);
 
 	vector <vector <float> > frames;
 	vec2frames(speech, Nw, Ns, frames);
+	silence_removal(frames);
 	return 0;
 }
 
