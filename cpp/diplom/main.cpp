@@ -73,124 +73,6 @@ struct WAVHEADER
 	// Далее следуют непосредственно Wav данные.
 };
 
-float bytesToFloat(char firstByte, char secondByte)
-{
-	unsigned short int s = ((unsigned short int)secondByte << 8) + firstByte;
-	float res;
-	if (s >= 32768)
-		res = (s - 65536) / 32768.0;
-	else
-		res = s / 32768.0;
-	return floor(res * 100000) / 100000;
-}
-
-void filter(const float k, vector<float> &speech)
-{
-	vector<float> resSpeech(speech.size());
-	int size = speech.size();
-	for (int i = k; i < size - k; ++i)
-	{
-		float sum = 0;
-		for (int j = -k; j < k + 1; ++j)
-		{
-			sum = speech[i + j];
-		}
-		resSpeech[i] = (1 / k)*sum;
-	}
-	for (int i = 0; i < k; ++i)
-		resSpeech[speech.size() - i-1] = speech[i];
-	for (int i = 0; i < k; ++i)
-		resSpeech[i] = speech[i];
-	speech = resSpeech;
-}
-
-void MulMatrix(const vector <vector <float> > &A, const vector <vector <float> > &B, vector <vector <float> > &Res)
-{
-	if (A.front().size() != B.size())
-		throw 1;
-	int a = A.size();
-	int b = B.size();
-	int c = B.front().size();
-	vector <vector <float> > R(a, vector<float>(c, 0));
-
-	for (int i = 0; i < a; ++i)
-		for (int j = 0; j < c; ++j)
-		{
-			R[i][j] = 0;
-			for (int k = 0; k < b; ++k)
-				R[i][j] += A[i][k] * B[k][j];
-		}
-	Res = R;
-}
-
-void diag(const vector <float> &V, vector <vector <float> > &R)
-{
-	vector <vector <float> > A(V.size(), vector<float>(V.size(), 0));
-	for (int i = 0; i < V.size(); ++i)
-		A[i][i] = V[i];
-	R = A;
-}
-
-void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &resFrames)
-{
-	int L = vec.size();
-
-	int M = floor((L - Nw) / Ns + 1);
-	int E = (L - ((M - 1) * Ns + Nw));
-	if (E > 0)
-	{
-		int P = Nw - E;
-		vec.insert(vec.end(), P, 0);
-		M = M + 1;
-	}
-
-	vector<int> indf(M);
-	vector<int> inds(Nw);
-	for (int i = 0; i < M; ++i)
-		indf[i] = i * Ns;
-	for (int i = 0; i < Nw; ++i)
-		inds[i] = i + 1;
-
-	vector <vector <float> > frames(inds.size(), vector<float>(indf.size()));
-	for (int i = 0; i < inds.size(); ++i)
-		for (int j = 0; j < indf.size(); ++j)
-		{
-			frames[i][j] = vec[inds[i] + indf[j] - 1];
-		}
-	
-	vector<float> window_s(Nw);
-	for (int i = 0; i < window_s.size(); ++i)
-		window_s[i] = 0.54 - 0.46 * cos((2.0 * PI * i) / (window_s.size() - 1.0));
-	vector<vector<float>> ham_matrix(Nw, vector<float>(Nw, 0));
-	diag(window_s, ham_matrix);
-	MulMatrix(ham_matrix, frames, resFrames);
-}
-
-void silence_removal(vector <vector <float>> source)
-{
-	const int Nf = source.front().size();
-	vector <float> E(Nf, 0);
-	const int Nw = source.size();
-	float E_mean = 0;
-	for (int i = 0; i < Nf; ++i)
-	{
-		float sum = 0;
-		for (int j = 0; j < Nw; ++j)
-			sum += fabs(source[j][i])*fabs(source[j][i]);
-		E[i] = sum * (1.0 / Nw);
-		E_mean += E[i];
-	}
-	E_mean /= Nf;
-	float T_E = E_mean / 10;
-	vector<bool> voicedIndexes(Nf);
-	for (int i = 0; i < E.size(); ++i)
-		voicedIndexes[i] = ((E[i] > T_E) ? 1 : 0);
-	for (int i = 0; i < Nf; ++i)
-		if (!voicedIndexes[i])
-			source.erase(source.begin() + i);
-
-}
-
 bool  FFT(float *Rdat, float *Idat, int N, int LogN, int Ft_Flag)
 {
 	// parameters error check:
@@ -289,6 +171,154 @@ bool  FFT(float *Rdat, float *Idat, int N, int LogN, int Ft_Flag)
 	return true;
 }
 
+void EraseColMatrinx(vector <vector <float>> &source, int N)
+{
+	for (int i = 0; i < source.size(); ++i)
+	{
+		source[i].erase(source[i].begin() + N);
+	}
+}
+
+void filter(const float k, vector<float> &speech)
+{
+	vector<float> resSpeech(speech.size());
+	int size = speech.size();
+	for (int i = k; i < size - k; ++i)
+	{
+		float sum = 0;
+		for (int j = -k; j < k + 1; ++j)
+		{
+			sum = speech[i + j];
+		}
+		resSpeech[i] = (1 / k)*sum;
+	}
+	for (int i = 0; i < k; ++i)
+		resSpeech[speech.size() - i-1] = speech[i];
+	for (int i = 0; i < k; ++i)
+		resSpeech[i] = speech[i];
+	speech = resSpeech;
+}
+
+void MulMatrix(const vector <vector <float> > &A, const vector <vector <float> > &B, vector <vector <float> > &Res)
+{
+	if (A.front().size() != B.size())
+		throw 1;
+	int a = A.size();
+	int b = B.size();
+	int c = B.front().size();
+
+	float **Am = new float*[a]; // строки в массиве
+	for (int count = 0; count < a; count++)
+		Am[count] = new float[b]; // столбцы
+	float **Bm = new float*[b]; // строки в массиве
+	for (int count = 0; count < b; count++)
+		Bm[count] = new float[c]; // столбцы
+	float **R = new float*[a]; // строки в массиве
+	for (int count = 0; count < a; count++)
+		R[count] = new float[c]; // столбцы
+	vector <vector <float> > Rm(a, vector<float>(c, 0));
+
+	for (int i = 0; i < a; ++i)
+		for (int j = 0; j < b; ++j)
+		{
+			Am[i][j] = A[i][j];
+		}
+	for (int i = 0; i < b; ++i)
+		for (int j = 0; j < c; ++j)
+		{
+			Bm[i][j] = B[i][j];
+		}
+
+	for (int i = 0; i < a; ++i)
+		for (int j = 0; j < c; ++j)
+		{
+			R[i][j] = 0;
+			for (int k = 0; k < b; ++k)
+				R[i][j] += Am[i][k] * Bm[k][j];
+		}
+	for (int i = 0; i < a; ++i)
+		for (int j = 0; j < c; ++j)
+		{
+			Rm[i][j] = R[i][j];
+		}
+	Res = Rm;
+
+	for (int count = 0; count < a; count++)
+		delete[] Am[count];
+	for (int count = 0; count < b; count++)
+		delete[] Bm[count];
+	for (int count = 0; count < a; count++)
+		delete[] R[count];
+}
+
+void diag(const vector <float> &V, vector <vector <float> > &R)
+{
+	vector <vector <float> > A(V.size(), vector<float>(V.size(), 0));
+	for (int i = 0; i < V.size(); ++i)
+		A[i][i] = V[i];
+	R = A;
+}
+
+void vec2frames(vector<float> &vec, int Nw, int Ns, vector <vector <float> > &resFrames)
+{
+	int L = vec.size();
+
+	int M = floor((L - Nw) / Ns + 1);
+	int E = (L - ((M - 1) * Ns + Nw));
+	if (E > 0)
+	{
+		int P = Nw - E;
+		vec.insert(vec.end(), P, 0);
+		M = M + 1;
+	}
+
+	vector<int> indf(M);
+	vector<int> inds(Nw);
+	for (int i = 0; i < M; ++i)
+		indf[i] = i * Ns;
+	for (int i = 0; i < Nw; ++i)
+		inds[i] = i + 1;
+
+	vector <vector <float> > frames(inds.size(), vector<float>(indf.size()));
+	for (int i = 0; i < inds.size(); ++i)
+		for (int j = 0; j < indf.size(); ++j)
+		{
+			frames[i][j] = vec[inds[i] + indf[j] - 1];
+		}
+	
+	vector<float> window_s(Nw);
+	for (int i = 0; i < window_s.size(); ++i)
+		window_s[i] = 0.54 - 0.46 * cos((2.0 * PI * i) / (window_s.size() - 1.0));
+	vector<vector<float>> ham_matrix(Nw, vector<float>(Nw, 0));
+	diag(window_s, ham_matrix);
+	MulMatrix(ham_matrix, frames, resFrames);
+}
+
+void silence_removal(vector <vector <float>> &source)
+{
+	const int Nf = source.front().size();
+	vector <float> E(Nf, 0);
+	const int Nw = source.size();
+	float E_mean = 0;
+	for (int i = 0; i < Nf; ++i)
+	{
+		float sum = 0;
+		for (int j = 0; j < Nw; ++j)
+			sum += fabs(source[j][i])*fabs(source[j][i]);
+		E[i] = sum * (1.0 / Nw);
+		E_mean += E[i];
+	}
+	E_mean /= Nf;
+	float T_E = E_mean / 10;
+	vector<bool> voicedIndexes(Nf);
+	for (int i = 0; i < E.size(); ++i)
+		voicedIndexes[i] = ((E[i] > T_E) ? 1 : 0);
+	for (int i = Nf - 1; i >= 0; --i)
+		if (!voicedIndexes[i])
+			EraseColMatrinx(source, i);
+
+}
+
 bool get_feature_vector(vector<float> speech, const int fs, vector <vector <float>> &MFCCs_train)
 {
 	bool use_ceplifter = false;
@@ -310,33 +340,39 @@ bool get_feature_vector(vector<float> speech, const int fs, vector <vector <floa
 	vector <vector <float> > frames;
 	vec2frames(speech, Nw, Ns, frames);
 	silence_removal(frames);
-	const int Nfft = 8192;
+	const int Nfft = pow(2, (int)ceil(log((double)Nw) / log(2.0)));
 	const int K = (Nfft / 2) + 1;
-	float fram[8192];
-	float res[8192] = {0.0};
-	for (int j = 0; j < frames.size(); ++j)
+	int i;
+	float *re = new float[Nfft];
+	float *im = new float[Nfft];
+
+	std::vector <std::vector <float>> MAG(Nfft, vector<float>(frames.front().size(), 0));
+	for (int j = 0; j < frames.front().size(); ++j)
 	{
-		for (int i = 0; i < 4410; ++i)
+		for (i = 0; i < Nfft; ++i)
 		{
-			fram[i] = frames[i][j];
+			re[i] = 0.0;
+			im[i] = 0.0;
 		}
-		FFT(fram, res, Nfft, 13, FT_DIRECT);
+		for (i = 0; i < 4410; ++i)
+		{
+			re[i] = frames[i][j];
+		}
+
+		FFT(re, im, Nfft, 13, FT_DIRECT);
+
+		for (i = 0; i < Nfft; ++i)
+		{
+			MAG[i][j] = sqrt(re[i]*re[i] + im[i] * im[i]);
+		}
 	}
+	delete[] re;
+	delete[] im;
 	return 0;
 }
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	/*vector<vector<float>> matrix1(2, vector<float>(3, 0));
-	matrix1[0] = { 1, 2, 3 };
-	matrix1[1] = { 2, 5, 10};
-	vector<vector<float>> matrix2(3, vector<float>(2, 0));
-	matrix2[0] = { 3, 4 };
-	matrix2[1] = { 6, 7 };
-	matrix2[2] = { 2, 1 };
-	vector<vector<float>> matrixres(2, vector<float>(2, 0));
-	MulMatrix(matrix1, matrix2, matrixres);*/
-
 	FILE *file;
 	errno_t err;
 	err = fopen_s(&file, "train-01.wav", "rb");
