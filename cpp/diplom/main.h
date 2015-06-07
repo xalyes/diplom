@@ -5,12 +5,11 @@
 #include <Windows.h>
 #include <string>
 #include <iostream>
-//#include "mmsystem.h"
-//#include "dsound.h"
-//#include <stdio.h>
 #include <tchar.h>
 #include <conio.h>
 #include <math.h>
 #include <vector>
+#include <float.h>
+#include "fft.h"
 
 #endif
