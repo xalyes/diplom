@@ -2,6 +2,8 @@
 
 using namespace std;
 #define PI 3.1415926535
+#define TRAIN_COUNT 3
+vector <vector <float>> MFCCs_train[TRAIN_COUNT];
 const double TwoPi = 6.283185307179586;
 
 #define  NUMBER_IS_2_POW_K(x)   ((!((x)&((x)-1)))&&((x)>1))  // x is pow(2, k), k=1,2, ...
@@ -436,7 +438,6 @@ void ceplifter(int N, int L, vector <float> &y)
 
 void get_feature_vector(vector<float> speech, const int fs, vector <vector <float>> &MFCCs_train)
 {
-	bool use_ceplifter = false;
 	float alpha = 0.97;				// коэффициент предварительной обработки
 	int frame_duration = 100;		// длительность фрейма в мс
 	int frame_shift = 50;			// сдвиг фреймов в мс
@@ -447,7 +448,7 @@ void get_feature_vector(vector<float> speech, const int fs, vector <vector <floa
 	int fmax = 6250;				// максимальная частота, Гц
 	int Ncc = 29;					// количество мел - кепстральных коэффициентов
 
-	//filter(25, speech);
+	filter(25, speech);
 
 	int Nw = round(0.001 * frame_duration * fs);
 	int Ns = round(0.001 * frame_shift * fs);
@@ -519,123 +520,196 @@ void disteusq(vector <vector <float>> X, vector <vector <float>> Y, vector <vect
 	int ny = y.size();
 	int p = x.front().size();
 	vector <vector<float>> d(nx, vector<float>(ny, 0));
-	if (nx != ny)
-	{
-		vector <vector <vector<float>>> z(nx, vector<vector<float>>(ny, vector<float>(p)));
-		vector <vector <vector<float>>> zy(nx, vector<vector<float>>(ny, vector<float>(p)));
-		vector <vector<float>> d(nx, vector<float>(ny, 0));
-		for (int i = 0; i < nx; ++i)
-			for (int j = 0; j < p; ++j)
-				for (int k = 0; k < ny; ++k)
-				{
-					z[i][k][j] = x[i][j];
-				}
-		for (int i = 0; i < nx; ++i)
-			for (int j = 0; j < ny; ++j)
-				for (int k = 0; k < p; ++k)
-				{
-					zy[i][j][k] = x[i][j];
-					z[i][j][k] -= zy[i][j][k];
-					d[i][j] += z[i][j][k] * z[i][j][k];
-				}
-		D = d;
-	}
-	else
-	{
-		for (int i = 0; i < nx; ++i)
-			for (int j = 0; j < p; ++j)
+	vector <vector <vector<float>>> z(nx, vector<vector<float>>(ny, vector<float>(p)));
+	vector <vector <vector<float>>> zy(nx, vector<vector<float>>(ny, vector<float>(p)));
+	for (int i = 0; i < nx; ++i)
+		for (int j = 0; j < p; ++j)
+			for (int k = 0; k < ny; ++k)
 			{
-				d[i][j] = (x[i][j] - y[i][j]) * (x[i][j] - y[i][j]);
+				z[i][k][j] = x[i][j];
 			}
-			D = d;
+	for (int i = 0; i < nx; ++i)
+		for (int j = 0; j < ny; ++j)
+			for (int k = 0; k < p; ++k)
+			{
+				zy[i][j][k] = y[j][k];
+				z[i][j][k] -= zy[i][j][k];
+				d[i][j] += z[i][j][k] * z[i][j][k];
+			}
+	D = d;
+}
+
+void compare_vectors(vector <vector <float>> MFCCs_train[], int count, vector<float> &res)
+{
+	vector<int> N(count);
+	for (int i = 0; i < count; ++i)
+	{
+		N[i] = MFCCs_train[i].front().size();
+	}
+	float threshold = 0;
+
+	for (int i = 0; i < count - 1; ++i)
+	{
+		for (int j = 1; i < count; ++i)
+		{
+			if (i == j)
+				continue;
+			vector <vector <float>> D;
+			disteusq(MFCCs_train[i], MFCCs_train[j], D);
+			float width = 0.5;
+			float d;
+			vector <vector <float>> F(N[i], vector<float>(N[j], FLT_MAX));
+			for (int k = 1; k <= N[i]; ++k)
+			for (int l = 1; l <= N[j]; ++l)
+			{
+				float t1 = (float)k / (float)(N[i]);
+				float t2 = (float)l / (float)(N[j]);
+				d = fabs(t1 - t2);
+				if (d <= width / 4.0)
+					F[k - 1][l - 1] = 1.0;
+				else
+				if (d <= width)
+					F[k - 1][l - 1] = 1.0 + d * 5.0;
+			}
+			vector <vector <float>> S(N[i], vector<float>(N[j], 0));
+			for (int k = 0; k < N[i]; ++k)
+			for (int l = 0; l < N[j]; ++l)
+				S[k][l] = D[k][l] * F[k][l];
+			vector<float> minS(N[i], FLT_MAX);
+			float sum = 0;
+			for (int k = 0; k < N[i]; ++k)
+			{
+				for (int l = 0; l < N[j]; ++l)
+				if (S[k][l] < minS[k])
+					minS[k] = S[k][l];
+				sum += minS[k] * minS[k];
+			}
+			float dist = sqrt(sum / S.size());
+			res.push_back(dist);
+			cout << "Расстояние между двумя векторами признаков " << i + 1 << " и " << j + 1 << " составляет " << dist << endl;
+		}
+	}
+}
+
+float get_threshold(string samples[TRAIN_COUNT])
+{
+	FILE *file;
+	errno_t err;
+	long sampleRate[TRAIN_COUNT];
+	vector<float> speech[TRAIN_COUNT];
+
+	for (int k = 0; k < TRAIN_COUNT; ++k)
+	{
+		err = fopen_s(&file, samples[k].c_str(), "rb");
+		if (err)
+		{
+			printf_s("Failed open file, error %d", err);
+			return 0;
+		}
+
+		WAVHEADER header;
+
+		fread_s(&header, sizeof(WAVHEADER), sizeof(WAVHEADER), 1, file);
+		speech[k].resize(header.subchunk2Size / 4);
+		int j = 0; int i = 0;
+		for (std::vector<float>::iterator it = speech[k].begin(); it != speech[k].end(); ++it)
+		{
+			float a, b;
+			fread_s(&a, sizeof(a), sizeof(a), 1, file);
+			*it = a;
+			i++;
+			if (i == 4410) j++;
+		}
+		sampleRate[k] = header.sampleRate;
+		fclose(file);
+		get_feature_vector(speech[k], sampleRate[k], MFCCs_train[k]);
+	}
+	vector<float> dists;
+	compare_vectors(MFCCs_train, TRAIN_COUNT, dists);
+	float sum = 0;
+	for (int i = 0; i < dists.size(); ++i)
+		sum += dists[i];
+	return sum;
+}
+
+void verify_samples(float threshold, float threshold2, vector<int> &res)
+{
+	WIN32_FIND_DATA FindFileData;
+	HANDLE hf;
+	FILE *file;
+	errno_t err;
+	hf = FindFirstFile("verify\\*.wav", &FindFileData);
+	if (hf != INVALID_HANDLE_VALUE)
+	{
+		do
+		{
+			vector<float> speech;
+			int sampleRate;
+			vector <vector <float>> MFCCs;
+			string filename = FindFileData.cFileName;
+			err = fopen_s(&file, ("verify\\" + filename).c_str(), "rb");
+			if (err)
+			{
+				printf_s("Failed open file, error %d", err);
+				continue;
+			}
+
+			WAVHEADER header;
+
+			fread_s(&header, sizeof(WAVHEADER), sizeof(WAVHEADER), 1, file);
+			speech.resize(header.subchunk2Size / 4);
+			for (std::vector<float>::iterator it = speech.begin(); it != speech.end(); ++it)
+			{
+				float a, b;
+				fread_s(&a, sizeof(a), sizeof(a), 1, file);
+				*it = a;
+			}
+			sampleRate = header.sampleRate;
+			fclose(file);
+			get_feature_vector(speech, sampleRate, MFCCs);
+			float distmin = FLT_MAX;
+			for (int i = 0; i < TRAIN_COUNT; ++i)
+			{
+				vector <vector <float>> MFCCsmas[2] = { MFCCs_train[i], MFCCs};
+				vector<float> dists;
+				compare_vectors(MFCCsmas, 2, dists);
+				if (distmin > dists.front())
+					distmin = dists.front();
+			}
+			if (distmin < threshold)
+			{
+				res.push_back(1);
+				cout << FindFileData.cFileName << " - cтатус: подтвержден, расстояние: " << distmin << endl;
+			}
+			else if (distmin < threshold2)
+			{
+				res.push_back(2);
+				cout << FindFileData.cFileName << " - cтатус: сомнительно, расстояние: " << distmin << endl;
+			}
+			else
+			{
+				res.push_back(0);
+				cout << FindFileData.cFileName << " - cтатус: отвергнут, расстояние: " << distmin << endl;
+			}
+
+		} while (FindNextFile(hf, &FindFileData) != 0);
+		FindClose(hf);
 	}
 }
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	FILE *file;
-	errno_t err;
-	long sampleRate1, sampleRate2;
-	err = fopen_s(&file, "train-01.wav", "rb");
-	if (err)
-	{
-		printf_s("Failed open file, error %d", err);
-		return 0;
-	}
-
-	WAVHEADER header;
-
-	fread_s(&header, sizeof(WAVHEADER), sizeof(WAVHEADER), 1, file);
-	vector<float> speech1(header.subchunk2Size / 4);
-	int j = 0; int i = 0;
-	for (std::vector<float>::iterator it = speech1.begin(); it != speech1.end(); ++it)
-	{
-		float a, b;
-		fread_s(&a, sizeof(a), sizeof(a), 1, file);
-		*it = a;
-		i++;
-		if (i == 4410) j++;
-	}
-	sampleRate1 = header.sampleRate;
-	err = fopen_s(&file, "train-02.wav", "rb");
-	if (err)
-	{
-		printf_s("Failed open file, error %d", err);
-		return 0;
-	}
-
-	fread_s(&header, sizeof(WAVHEADER), sizeof(WAVHEADER), 1, file);
-	vector<float> speech2(header.subchunk2Size / 4);
-	j = 0; i = 0;
-	for (std::vector<float>::iterator it = speech2.begin(); it != speech2.end(); ++it)
-	{
-		float a, b;
-		fread_s(&a, sizeof(a), sizeof(a), 1, file);
-		*it = a;
-		i++;
-		if (i == 4410) j++;
-	}
-	sampleRate2 = header.sampleRate;
-	vector <vector <float>> MFCCs_train1;
-	vector <vector <float>> MFCCs_train2; // (28, vector<float>(2));
-
-	get_feature_vector(speech1, sampleRate1, MFCCs_train1);
-	get_feature_vector(speech2, sampleRate2, MFCCs_train2);
-
-	
-	vector <vector <float>> D;
-	int N1 = MFCCs_train1.front().size();
-	int N2 = MFCCs_train2.front().size();
-	disteusq(MFCCs_train1, MFCCs_train2, D);
-	float width = 0.5;
-	float d;
-	vector <vector <float>> F(N1, vector<float>(N2, FLT_MAX));
-	for (i = 0; i < N1; ++i)
-		for (j = 0; j < N2; ++j)
-		{
-			d = fabs((float) i/N1 - j/N2);
-			if (d <= width / 4)
-				F[i][j] = 1.0;
-			else
-				if (d <= width)
-					F[i][j] = 1 + d * 5;
-		}
-	vector <vector <float>> S(N1, vector<float>(N2, 0));
-	for (i = 0; i < N1; ++i)
-		for (j = 0; j < N2; ++j)
-			S[i][j] = D[i][j] * F[i][j];
-	vector<float> minS(N1, FLT_MAX);
-	float sum = 0;
-	for (i = 0; i < N1; ++i)
-	{
-		for (j = 0; j < N2; ++j)
-			if (S[i][j] < minS[i])
-				minS[i] = S[i][j];
-		sum += minS[i] * minS[i];
-	}
-	float dist = sqrt(sum / S.size());
-
-	fclose(file);
+	setlocale(LC_ALL, "");
+	string samples[10] = { "train-01.wav", "train-02.wav", "train-03.wav", "train-04.wav","train-05.wav",
+		"train-06.wav", "train-07.wav", "train-08.wav", "train-09.wav" "train-10.wav"};
+	float threshold = get_threshold(samples);
+	float c1 = 1.1;
+	threshold = (threshold / TRAIN_COUNT) * 1.33;
+	float threshold2 = threshold * c1;
+	cout << "Граничное расстояние подтверждения " << threshold << endl;
+	cout << "Граничное расстояние результата \"Сомнительно\" " << threshold2 << endl;
+	vector<int> results;
+	verify_samples(threshold, threshold2, results);
 
 	_getch();
 	return 0;
